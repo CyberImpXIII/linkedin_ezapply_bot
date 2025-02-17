@@ -44,6 +44,10 @@ function check_login(){
 
     await page.type('#password', dataObj.password);
 
+    await page.click('button[aria-label="Sign in"]');
+
+    await page.waitForSelector('li-icon[type="job"]');
+
     await page.screenshot({
         path: 'screenshot.jpg'
       });
