@@ -4,6 +4,73 @@ const readline = require('readline-sync')
 const fs = require('fs');
 // Or import puppeteer from 'puppeteer-core';
 
+const waitForDOMToSettle = (page, timeoutMs = 30000, debounceMs = 1000) =>
+    page.evaluate(
+      (timeoutMs, debounceMs) => {
+        let debounce = (func, ms = 1000) => {
+          let timeout;
+          return (...args) => {
+            console.log("in debounce, clearing timeout again");
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+              func.apply(this, args);
+            }, ms);
+          };
+        };
+        return new Promise((resolve, reject) => {
+          let mainTimeout = setTimeout(() => {
+            observer.disconnect();
+            reject(new Error("Timed out whilst waiting for DOM to settle"));
+          }, timeoutMs);
+   
+          let debouncedResolve = debounce(async () => {
+            observer.disconnect();
+            clearTimeout(mainTimeout);
+            resolve();
+          }, debounceMs);
+   
+          const observer = new MutationObserver(() => {
+            debouncedResolve();
+          });
+          const config = {
+            attributes: true,
+            childList: true,
+            subtree: true,
+          };
+          observer.observe(document.body, config);
+        });
+      },
+      timeoutMs,
+      debounceMs
+    );
+
+const scrapeIdsAndTotalPages = async (page)=>{
+    return await page.evaluate(async() => {
+        let jobDetails = {
+            jobIds:[],
+            totalPages:1
+        };
+        await document.querySelectorAll("[data-occludable-job-id]").forEach(element => {
+            jobDetails.jobIds.push(element.getAttribute("data-occludable-job-id"));
+        })
+        jobDetails.totalPages = await Array.from(document.querySelectorAll("[data-test-pagination-page-btn]")).reduce((acc, curr) => {
+            return (acc > parseInt(curr.getAttribute("data-test-pagination-page-btn"))) ? acc : parseInt(curr.getAttribute("data-test-pagination-page-btn"));
+        }, 0);
+        return jobDetails;
+    })
+}
+
+const scrollDown = async (page)=>{
+    const elem = await page.$('.scaffold-layout__list ');
+    const boundingBox = await elem.boundingBox();
+    await page.mouse.move(
+        boundingBox.x + boundingBox.width / 2, // x
+        boundingBox.y + boundingBox.height / 2 // y
+    );
+    
+    await page.mouse.wheel({ deltaY: 2500 });
+    }
+
 let dataObj= {};
 
 function check_login(){
@@ -47,6 +114,17 @@ function check_login(){
     await page.click('button[aria-label="Sign in"]');
 
     await page.waitForSelector('li-icon[type="job"]');
+//f_WT=2 is that same as remote only
+//f_WT=1 is that same as on-site only
+//f_AL=true is for easy apply
+    await page.goto('https://www.linkedin.com/jobs/search?keywords=Software%20engineer&f_WT=2&f_AL=true');
+
+    await waitForDOMToSettle(page);
+    await scrollDown(page);
+    let details = await scrapeIdsAndTotalPages(page);
+    await console.log(details);
+
+    
 
     await page.screenshot({
         path: 'screenshot.jpg'
