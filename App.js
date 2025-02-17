@@ -51,7 +51,9 @@ const delay = (time) => {
 }
 
 const promise_forEach = async (array, asyncCallback)=>{
-    return await Promise.all(array.map((element, index, array)=>(new Promise(()=>{asyncCallback(element, index, array)}))));
+    return await Promise.all(array.map((element, index, array)=>(new Promise((resolve, reject)=>{
+        asyncCallback(element, index, array, resolve, reject);
+    }))));
 }
 
 const scrapeIdsAndTotalPages = async (page)=>{
@@ -134,18 +136,15 @@ function check_login(){
     let details = await scrapeIdsAndTotalPages(page);
     dataObj.jobIds = dataObj.jobIds ? [...dataObj.jobIds, ...details.jobIds] : [...details.jobIds];
     await console.log(details);
-    await promise_forEach(Array(details.totalPages-1).fill(0), async (element, index, array)=>{
+    await promise_forEach(Array(details.totalPages-1).fill(0), async (element, index, array, resolve, reject)=>{
         await delay((index)*2000 + (Math.random() * (100 + (Math.random() * 100))))
         let currentPage = await browser.newPage();
         await currentPage.goto(`https://www.linkedin.com/jobs/search?keywords=Software%20engineer&f_WT=2&f_AL=true&start=${(index + 1 )* 25}`);
         await waitForDOMToSettle(currentPage, 600000);
         let details = await scrapeIdsAndTotalPages(currentPage);
         dataObj.jobIds = dataObj.jobIds ? [...dataObj.jobIds, ...details.jobIds] : [...details.jobIds];
-        await currentPage.screenshot({
-            path: `screenshot_${index + 1}.jpg`
-          });
         await currentPage.close();
-        return true;
+        resolve();
     })
     await console.log(dataObj.jobIds);
 
