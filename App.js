@@ -44,6 +44,16 @@ const waitForDOMToSettle = (page, timeoutMs = 30000, debounceMs = 1000) =>
       debounceMs
     );
 
+const delay = (time) => {
+    return new Promise(function(resolve) { 
+        setTimeout(resolve, time)
+    });
+}
+
+const promise_forEach = async (array, asyncCallback)=>{
+    return await Promise.all(array.map((element, index, array)=>(new Promise(()=>{asyncCallback(element, index, array)}))));
+}
+
 const scrapeIdsAndTotalPages = async (page)=>{
     return await page.evaluate(async() => {
         let jobDetails = {
@@ -122,7 +132,22 @@ function check_login(){
     await waitForDOMToSettle(page);
     await scrollDown(page);
     let details = await scrapeIdsAndTotalPages(page);
+    dataObj.jobIds = dataObj.jobIds ? [...dataObj.jobIds, ...details.jobIds] : [...details.jobIds];
     await console.log(details);
+    await promise_forEach(Array(details.totalPages-1).fill(0), async (element, index, array)=>{
+        await delay((index)*2000 + (Math.random() * (100 + (Math.random() * 100))))
+        let currentPage = await browser.newPage();
+        await currentPage.goto(`https://www.linkedin.com/jobs/search?keywords=Software%20engineer&f_WT=2&f_AL=true&start=${(index + 1 )* 25}`);
+        await waitForDOMToSettle(currentPage, 600000);
+        let details = await scrapeIdsAndTotalPages(currentPage);
+        dataObj.jobIds = dataObj.jobIds ? [...dataObj.jobIds, ...details.jobIds] : [...details.jobIds];
+        await currentPage.screenshot({
+            path: `screenshot_${index + 1}.jpg`
+          });
+        await currentPage.close();
+        return true;
+    })
+    await console.log(dataObj.jobIds);
 
     
 
