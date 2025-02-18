@@ -72,6 +72,28 @@ const scrapeIdsAndTotalPages = async (page)=>{
     })
 }
 
+const detectFormFields = async (page)=>{
+    return await page.evaluate(()=>{
+        return document.querySelectorAll("div['data-test-text-entity-list-form-component'] > label")
+    })
+}
+
+const applyForOneJob = async (page, jobId)=>{
+    await page.goto(`https://www.linkedin.com/jobs/view/${jobId}`);
+    await page.waitForSelector('.jobs-apply-button]');
+    await page.click('.jobs-apply-button]');
+    const formFields = await detectFormFields(page);
+    console.log(formFields);
+}
+
+(async ()=>{
+    const browser = await puppeteer.launch({headless: false});
+    const page = await browser.newPage();
+    await login(page);
+    await applyForOneJob(page, '34567890');
+    await browser.close();
+})();
+
 const scrollDown = async (page)=>{
     const elem = await page.$('.scaffold-layout__list ');
     const boundingBox = await elem.boundingBox();
@@ -99,31 +121,28 @@ function check_login(){
     }
 }
 
-// Launch the browser and open a new blank page
-( async ()=>{
+const login = async (page)=>{
     if(fs.existsSync('file.log')){ 
         dataObj = JSON.parse(fs.readFileSync('file.log', 'utf8'))
     }else{
         console.log("No login credentials found");
         return true
     }
+    await page.goto('https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin');
+    await page.waitForSelector('#username');
+    await page.type('#username', dataObj.username);
+    await page.type('#password', dataObj.password);
+    await page.click('button[aria-label="Sign in"]');
+}
+
+// Launch the browser and open a new blank page
+const scrapeAllJobIds = async ()=>{
+
     
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
 
-    // Navigate the page to a URL.
-    await page.goto('https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin');
-
-    // Set screen size.
-    await page.setViewport({width: 1080, height: 1024});
-
-    await page.waitForSelector('#username');
-
-    await page.type('#username', dataObj.username);
-
-    await page.type('#password', dataObj.password);
-
-    await page.click('button[aria-label="Sign in"]');
+    await login(page);
 
     await page.waitForSelector('li-icon[type="job"]');
 //f_WT=2 is that same as remote only
@@ -154,4 +173,5 @@ function check_login(){
         path: 'screenshot.jpg'
       });
 
-    await browser.close();})()
+    await browser.close();
+}
