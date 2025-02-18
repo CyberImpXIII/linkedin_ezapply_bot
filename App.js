@@ -44,6 +44,22 @@ const waitForDOMToSettle = (page, timeoutMs = 30000, debounceMs = 1000) =>
       debounceMs
     );
 
+    const login = async (page)=>{
+        if(fs.existsSync('file.log')){ 
+            dataObj = JSON.parse(fs.readFileSync('file.log', 'utf8'))
+        }else{
+            console.log("No login credentials found");
+            return true
+        }
+        await page.goto('https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin');
+        await page.waitForSelector('#username');
+        await page.type('#username', dataObj.username);
+        await page.type('#password', dataObj.password);
+        await page.click('button[aria-label="Sign in"]');
+        await page.waitForSelector('li-icon[type="job"]');
+    }
+    
+
 const delay = (time) => {
     return new Promise(function(resolve) { 
         setTimeout(resolve, time)
@@ -73,24 +89,26 @@ const scrapeIdsAndTotalPages = async (page)=>{
 }
 
 const detectFormFields = async (page)=>{
-    return await page.evaluate(()=>{
-        return document.querySelectorAll("div['data-test-text-entity-list-form-component'] > label")
+    return await page.evaluate(async()=>{
+        return await Array.from(document.querySelectorAll("div[data-test-text-entity-list-form-component]"));
     })
 }
 
 const applyForOneJob = async (page, jobId)=>{
     await page.goto(`https://www.linkedin.com/jobs/view/${jobId}`);
-    await page.waitForSelector('.jobs-apply-button]');
-    await page.click('.jobs-apply-button]');
-    const formFields = await detectFormFields(page);
-    console.log(formFields);
+    await page.waitForSelector('#ember41');
+    await page.click('#ember41');
+    // await page.waitForSelector('#jobs-apply-header');
+    // const formFields = await detectFormFields(page);
+    // console.log(formFields);
 }
 
 (async ()=>{
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     await login(page);
-    await applyForOneJob(page, '34567890');
+    // await scrapeAllJobIds();
+    await applyForOneJob(page, '4149694044');
     await browser.close();
 })();
 
@@ -121,19 +139,6 @@ function check_login(){
     }
 }
 
-const login = async (page)=>{
-    if(fs.existsSync('file.log')){ 
-        dataObj = JSON.parse(fs.readFileSync('file.log', 'utf8'))
-    }else{
-        console.log("No login credentials found");
-        return true
-    }
-    await page.goto('https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin');
-    await page.waitForSelector('#username');
-    await page.type('#username', dataObj.username);
-    await page.type('#password', dataObj.password);
-    await page.click('button[aria-label="Sign in"]');
-}
 
 // Launch the browser and open a new blank page
 const scrapeAllJobIds = async ()=>{
@@ -144,7 +149,7 @@ const scrapeAllJobIds = async ()=>{
 
     await login(page);
 
-    await page.waitForSelector('li-icon[type="job"]');
+
 //f_WT=2 is that same as remote only
 //f_WT=1 is that same as on-site only
 //f_AL=true is for easy apply
