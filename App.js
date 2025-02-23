@@ -89,18 +89,55 @@ const scrapeIdsAndTotalPages = async (page)=>{
 }
 
 const detectFormFields = async (page)=>{
-    return await page.evaluate(async()=>{
-        return await Array.from(document.querySelectorAll("div[data-test-text-entity-list-form-component]"));
+    await console.log("detecting form fields");
+    await waitForDOMToSettle(page);
+    await page.waitForSelector('.fb-dash-form-element');
+    let formFieldsData = await page.evaluate(()=>{
+        let rawFormFields = document.querySelectorAll('.fb-dash-form-element');
+        let formFieldsData = [];
+        rawFormFields.forEach(element => {
+            let elementObject = {}
+            if(element.querySelector('label').hasAttribute('data-test-text-entity-list-form-title')){
+                elementObject.type = 'list'
+                elementObject.name = element.querySelector('label.fb-dash-form-element__label').innerText.split('\n')[0].trim();
+                elementObject.required = element.querySelector('label.fb-dash-form-element__label-title--is-required')!==null
+                elementObject.choices = [];
+                elementObject.default = element.querySelector('select').value;
+                [...element.querySelector('select').children].forEach(child => {
+                    elementObject.choices.push(child.innerText.trim());
+                })
+            }else if(element.querySelector('input[type="text"]')){
+                elementObject.type = 'text'
+                elementObject.name = element.querySelector('label')?.innerText;
+                elementObject.required = element.querySelector('input[type="text"]').getAttribute('required')!==null
+                elementObject.default = element.querySelector('input[type="text"]').value;
+            }else if(element.querySelector('fieldset[data-test-form-builder-radio-button-form-component="true"]')){
+                elementObject.type = 'radio'
+                elementObject.name = element.querySelector('label')?.children[0]?.innerText;
+                elementObject.required = element.querySelector('label.fb-dash-form-element__label-title--is-required')!==null
+                elementObject.default = element.querySelector('input[type="radio"]').value;
+                elementObject.choices = [];
+                [...element.querySelectorAll('input[type="radio"]')].forEach(radio => {
+                    elementObject.choices.push(radio.value);
+                })
+            }
+            formFieldsData.push(elementObject);
+        })
+        return formFieldsData;
     })
+    return formFieldsData;
 }
 
 const applyForOneJob = async (page, jobId)=>{
     await page.goto(`https://www.linkedin.com/jobs/view/${jobId}`);
-    await page.waitForSelector('#ember41');
-    await page.click('#ember41');
-    // await page.waitForSelector('#jobs-apply-header');
-    // const formFields = await detectFormFields(page);
-    // console.log(formFields);
+// I'm guessing the emberIDs are dependenat on when the element is rendered so it is different each time
+// I'm now trying to use the fact that I know the button I want to click is the second one on the page as a way to find it
+    await page.waitForSelector('.jobs-s-apply');
+    let applyButton = await page.$$('.jobs-s-apply');
+    await applyButton[1].click();
+    await page.waitForSelector('div[data-test-modal-id="easy-apply-modal"]');
+    const formFields = await detectFormFields(page);
+    await console.log(formFields);
 }
 
 (async ()=>{
@@ -108,7 +145,7 @@ const applyForOneJob = async (page, jobId)=>{
     const page = await browser.newPage();
     await login(page);
     // await scrapeAllJobIds();
-    await applyForOneJob(page, '4149694044');
+    await applyForOneJob(page, '4142835614');
     await browser.close();
 })();
 
