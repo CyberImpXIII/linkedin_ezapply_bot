@@ -1,7 +1,36 @@
 const puppeteer = require('puppeteer');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({
+    override: true,
+    path:path.join(__dirname, 'development.env')
+});
 const readline = require('readline-sync')
 const fs = require('fs');
+const { Pool, Client } = require('pg')
+
+const pool = new Pool({
+    user: process.env.USER,
+    host: process.env.HOST,
+    database: process.env.DATABASE,
+    password: process.env.PASSWORD,
+    port: process.env.PORT
+});
+
+//test connection
+
+(async ()=>{
+    const client = await pool.connect();
+    try{
+        const {rows} = await client.query('SELECT current_user');
+        const currentUser = rows[0].current_user;
+        console.log(`${currentUser} is connected to ${process.env.DATABASE}`)
+    }catch(error){
+        console.error('Error connecting to database', error);
+    }finally{
+        client.release();
+    }
+})();
+
 // Or import puppeteer from 'puppeteer-core';
 
 const waitForDOMToSettle = (page, timeoutMs = 30000, debounceMs = 1000) =>
@@ -44,22 +73,21 @@ const waitForDOMToSettle = (page, timeoutMs = 30000, debounceMs = 1000) =>
       debounceMs
     );
 
-    const login = async (page)=>{
-        if(fs.existsSync('file.log')){ 
-            dataObj = JSON.parse(fs.readFileSync('file.log', 'utf8'))
-        }else{
-            console.log("No login credentials found");
-            return true
-        }
-        await page.goto('https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin');
-        await page.waitForSelector('#username');
-        await page.type('#username', dataObj.username);
-        await page.type('#password', dataObj.password);
-        await page.click('button[aria-label="Sign in"]');
-        await page.waitForSelector('li-icon[type="job"]');
+const login = async (page)=>{
+    if(fs.existsSync('file.log')){ 
+        dataObj = JSON.parse(fs.readFileSync('file.log', 'utf8'))
+    }else{
+        console.log("No login credentials found");
+        return true
     }
+    await page.goto('https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin');
+    await page.waitForSelector('#username');
+    await page.type('#username', dataObj.username);
+    await page.type('#password', dataObj.password);
+    await page.click('button[aria-label="Sign in"]');
+    await page.waitForSelector('li-icon[type="job"]');
+}
     
-
 const delay = (time) => {
     return new Promise(function(resolve) { 
         setTimeout(resolve, time)
@@ -128,6 +156,7 @@ const detectFormFields = async (page)=>{
     return formFieldsData;
 }
 
+//apply for one job currently only handles retrieving the first set of form fields
 const applyForOneJob = async (page, jobId)=>{
     await page.goto(`https://www.linkedin.com/jobs/view/${jobId}`);
 // I'm guessing the emberIDs are dependenat on when the element is rendered so it is different each time
@@ -140,7 +169,7 @@ const applyForOneJob = async (page, jobId)=>{
     await console.log(formFields);
 }
 
-(async ()=>{
+/*(async ()=>{
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     await login(page);
@@ -148,7 +177,7 @@ const applyForOneJob = async (page, jobId)=>{
     await applyForOneJob(page, '4142835614');
     await browser.close();
 })();
-
+*/
 const scrollDown = async (page)=>{
     const elem = await page.$('.scaffold-layout__list ');
     const boundingBox = await elem.boundingBox();
