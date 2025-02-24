@@ -5,7 +5,7 @@ screenshot.jpg
 dist/
 
 # Ignore .env file
-.env
+*.env
 
 # Compiled source #
 ###################
